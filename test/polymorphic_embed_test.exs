@@ -1869,7 +1869,6 @@ defmodule PolymorphicEmbedTest do
           %{changeset: changeset, field: :channel}
         )
         |> Floki.parse_fragment!()
-        |> dbg()
 
       assert [input] = Floki.find(html, "#reminder_channel_my_type_field")
       assert Floki.attribute(input, "name") == ["reminder[channel][my_type_field]"]
@@ -1902,7 +1901,6 @@ defmodule PolymorphicEmbedTest do
           %{changeset: changeset, field: :channel3}
         )
         |> Floki.parse_fragment!()
-        |> dbg()
 
       assert [input] = Floki.find(html, "#reminder_channel3_my_type_field")
       assert Floki.attribute(input, "name") == ["reminder[channel3][my_type_field]"]
@@ -1974,7 +1972,7 @@ defmodule PolymorphicEmbedTest do
       expected_contents =
         if(polymorphic?(generator),
           do:
-            ~s(<input id="reminder_channel___type__" name="reminder[channel][__type__]" type="hidden" value="email"><input id="reminder_channel_address" name="reminder[channel][address]" type="text" value="a">),
+            ~s(<input id="reminder_channel_my_type_field" name="reminder[channel][my_type_field]" type="hidden" value="email"><input id="reminder_channel_address" name="reminder[channel][address]" type="text" value="a">),
           else:
             ~s(<input id="reminder_channel_address" name="reminder[channel][address]" type="text" value="a">)
         )
@@ -1995,7 +1993,7 @@ defmodule PolymorphicEmbedTest do
       expected_contents =
         if(polymorphic?(generator),
           do:
-            ~s(<input id="reminder_channel___type__" name="reminder[channel][__type__]" type="hidden" value="email"><input id="reminder_channel_address" name="reminder[channel][address]" type="text" value="a">),
+            ~s(<input id="reminder_channel_my_type_field" name="reminder[channel][my_type_field]" type="hidden" value="email"><input id="reminder_channel_address" name="reminder[channel][address]" type="text" value="a">),
           else:
             ~s(<input id="reminder_channel_address" name="reminder[channel][address]" type="text" value="a">)
         )
@@ -2037,7 +2035,7 @@ defmodule PolymorphicEmbedTest do
       expected_contents =
         if(polymorphic?(generator),
           do:
-            ~s(<input id="reminder_channel___type__" name="reminder[channel][__type__]" type="hidden" value="sms"><input id="reminder_channel_number" name="reminder[channel][number]" type="text" value="1">),
+            ~s(<input id="reminder_channel_my_type_field" name="reminder[channel][my_type_field]" type="hidden" value="sms"><input id="reminder_channel_number" name="reminder[channel][number]" type="text" value="1">),
           else:
             ~s(<input id="reminder_channel_number" name="reminder[channel][number]" type="text" value="1">)
         )
@@ -2058,7 +2056,7 @@ defmodule PolymorphicEmbedTest do
       expected_contents =
         if(polymorphic?(generator),
           do:
-            ~s(<input id="reminder_channel___type__" name="reminder[channel][__type__]" type="hidden" value="sms"><input id="reminder_channel_number" name="reminder[channel][number]" type="text" value="1">),
+            ~s(<input id="reminder_channel_my_type_field" name="reminder[channel][my_type_field]" type="hidden" value="sms"><input id="reminder_channel_number" name="reminder[channel][number]" type="text" value="1">),
           else:
             ~s(<input id="reminder_channel_number" name="reminder[channel][number]" type="text" value="1">)
         )
