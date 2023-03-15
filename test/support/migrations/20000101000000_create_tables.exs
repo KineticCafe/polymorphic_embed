@@ -3,6 +3,7 @@ defmodule PolymorphicEmbed.CreateTables do
 
   def change do
     create table(:events) do
+      add(:embedded_reminders, :map)
       timestamps()
     end
 
@@ -22,6 +23,7 @@ defmodule PolymorphicEmbed.CreateTables do
 
     create table(:todos) do
       add(:reminder_id, references(:reminders), null: false)
+      add(:embedded_reminder, :map)
     end
   end
 end
