@@ -3,8 +3,6 @@ import Config
 if Config.config_env() == :test do
   config :logger, level: :warning
 
-  config :phoenix, :json_library, Jason
-
   config :polymorphic_embed,
     ecto_repos: [PolymorphicEmbed.Repo]
 
