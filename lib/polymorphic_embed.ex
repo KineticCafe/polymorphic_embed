@@ -304,7 +304,10 @@ defmodule PolymorphicEmbed do
     map =
       struct
       |> map_from_struct()
-      |> Map.put(type_field, do_get_polymorphic_type(module, types_metadata))
+      |> Map.put(
+        String.to_existing_atom(type_field),
+        do_get_polymorphic_type(module, types_metadata)
+      )
 
     dumper.(:map, map)
   end
