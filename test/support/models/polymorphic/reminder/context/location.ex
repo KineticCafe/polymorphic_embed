@@ -3,7 +3,7 @@ defmodule PolymorphicEmbed.Reminder.Context.Location do
   import Ecto.Changeset
 
   embedded_schema do
-    embeds_one(:country, PolymorphicEmbed.Country, on_replace: :update)
+    embeds_one :country, PolymorphicEmbed.Country, on_replace: :update
     field :address, :string
   end
 

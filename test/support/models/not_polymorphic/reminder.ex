@@ -5,16 +5,14 @@ defmodule PolymorphicEmbed.Regular.Reminder do
   alias PolymorphicEmbed.Regular.{Todo, Event}
 
   schema "reminders" do
-    field(:date, :utc_datetime)
-    field(:text, :string)
-    has_one(:todo, Todo)
-    belongs_to(:event, Event)
+    field :date, :utc_datetime
+    field :text, :string
+    has_one :todo, Todo
+    belongs_to :event, Event
 
-    embeds_one(:channel, PolymorphicEmbed.Regular.Channel.SMS, on_replace: :update)
+    embeds_one :channel, PolymorphicEmbed.Regular.Channel.SMS, on_replace: :update
 
-    embeds_many(:contexts, PolymorphicEmbed.Regular.Reminder.Context.Location,
-      on_replace: :delete
-    )
+    embeds_many :contexts, PolymorphicEmbed.Regular.Reminder.Context.Location, on_replace: :delete
 
     timestamps()
   end

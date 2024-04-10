@@ -1,9 +1,18 @@
+defmodule PolymorphicEmbed.ReminderTypes do
+  alias PolymorphicEmbed.Reminder.Context
+
+  def context_types do
+    [location: Context.Location, age: Context.Age, device: Context.Device]
+  end
+end
+
 defmodule PolymorphicEmbed.Reminder do
   use Ecto.Schema
   use QueryBuilder
   import Ecto.Changeset
   import PolymorphicEmbed
-  alias PolymorphicEmbed.{Todo, Event}
+  alias PolymorphicEmbed.{Todo, Event, Reminder.Context}, warn: false
+  alias PolymorphicEmbed.Channel.{SMS, Email}, warn: false
 
   schema "reminders" do
     field(:date, :utc_datetime)
@@ -11,53 +20,40 @@ defmodule PolymorphicEmbed.Reminder do
     has_one(:todo, Todo)
     belongs_to(:event, Event)
 
-    polymorphic_embeds_one(:channel,
+    polymorphic_embeds_one :channel,
       types: [
-        sms: PolymorphicEmbed.Channel.SMS,
+        sms: SMS,
         email: [
-          module: PolymorphicEmbed.Channel.Email,
+          module: Email,
           identify_by_fields: [:address, :confirmed]
         ]
       ],
-      on_replace: :update,
       type_field: :my_type_field
-    )
 
-    polymorphic_embeds_one(:channel2,
+    polymorphic_embeds_one :channel2,
+      types: [
+        sms: PolymorphicEmbed.Channel.SMS,
+        email: PolymorphicEmbed.Channel.Email
+      ]
+
+    polymorphic_embeds_one :channel3,
       types: [
         sms: PolymorphicEmbed.Channel.SMS,
         email: PolymorphicEmbed.Channel.Email
       ],
-      on_replace: :update
-    )
-
-    polymorphic_embeds_one(:channel3,
-      types: [
-        sms: PolymorphicEmbed.Channel.SMS,
-        email: PolymorphicEmbed.Channel.Email
-      ],
-      on_replace: :update,
       type_field: :my_type_field
-    )
 
-    polymorphic_embeds_many(:contexts,
+    # polymorphic_embeds_many :contexts, types: PolymorphicEmbed.ReminderTypes.context_types()
+    # polymorphic_embeds_many :contexts, types: {PolymorphicEmbed.ReminderTypes, :context_types}
+    polymorphic_embeds_many :contexts, types: {PolymorphicEmbed.ReminderTypes, :context_types, []}
+
+    polymorphic_embeds_many :contexts2,
       types: [
         location: PolymorphicEmbed.Reminder.Context.Location,
         age: PolymorphicEmbed.Reminder.Context.Age,
         device: PolymorphicEmbed.Reminder.Context.Device
       ],
-      on_replace: :delete
-    )
-
-    polymorphic_embeds_many(:contexts2,
-      types: [
-        location: PolymorphicEmbed.Reminder.Context.Location,
-        age: PolymorphicEmbed.Reminder.Context.Age,
-        device: PolymorphicEmbed.Reminder.Context.Device
-      ],
-      on_type_not_found: :ignore,
-      on_replace: :delete
-    )
+      on_type_not_found: :ignore
 
     timestamps()
   end

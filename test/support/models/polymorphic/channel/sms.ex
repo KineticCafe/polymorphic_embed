@@ -9,26 +9,22 @@ defmodule PolymorphicEmbed.Channel.SMS do
 
     field(:custom, :boolean, default: false)
 
-    polymorphic_embeds_one(:provider,
+    polymorphic_embeds_one :provider,
       types: [
         twilio: PolymorphicEmbed.Channel.TwilioSMSProvider,
         test: PolymorphicEmbed.Channel.AcmeSMSProvider
       ],
-      on_type_not_found: :raise,
-      on_replace: :update
-    )
+      on_type_not_found: :raise
 
-    polymorphic_embeds_one(:fallback_provider,
+    polymorphic_embeds_one :fallback_provider,
       types: [
         twilio: PolymorphicEmbed.Channel.TwilioSMSProvider,
         test: PolymorphicEmbed.Channel.AcmeSMSProvider
       ],
-      on_type_not_found: :nilify,
-      on_replace: :update
-    )
+      on_type_not_found: :nilify
 
-    embeds_one(:result, PolymorphicEmbed.Channel.SMSResult, on_replace: :update)
-    embeds_many(:attempts, PolymorphicEmbed.Channel.SMSAttempts, on_replace: :delete)
+    embeds_one :result, PolymorphicEmbed.Channel.SMSResult, on_replace: :update
+    embeds_many :attempts, PolymorphicEmbed.Channel.SMSAttempts, on_replace: :delete
   end
 
   def changeset(struct, attrs) do

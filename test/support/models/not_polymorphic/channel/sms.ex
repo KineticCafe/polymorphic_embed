@@ -3,15 +3,13 @@ defmodule PolymorphicEmbed.Regular.Channel.SMS do
   import Ecto.Changeset
 
   embedded_schema do
-    field(:number, :string)
-    field(:country_code, :integer)
+    field :number, :string
+    field :country_code, :integer
+    field :custom, :boolean, default: false
 
-    field(:custom, :boolean, default: false)
-
-    embeds_one(:provider, PolymorphicEmbed.Regular.Channel.TwilioSMSProvider, on_replace: :update)
-
-    embeds_one(:result, PolymorphicEmbed.Regular.Channel.SMSResult, on_replace: :update)
-    embeds_many(:attempts, PolymorphicEmbed.Regular.Channel.SMSAttempts, on_replace: :delete)
+    embeds_one :provider, PolymorphicEmbed.Regular.Channel.TwilioSMSProvider, on_replace: :update
+    embeds_one :result, PolymorphicEmbed.Regular.Channel.SMSResult, on_replace: :update
+    embeds_many :attempts, PolymorphicEmbed.Regular.Channel.SMSAttempts, on_replace: :delete
   end
 
   def changeset(struct, attrs) do
