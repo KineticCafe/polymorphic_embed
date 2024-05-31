@@ -1,7 +1,7 @@
 defmodule PolymorphicEmbed.MixProject do
   use Mix.Project
 
-  @version "4.0.0-kinetic.1"
+  @version "4.1.0-kinetic.2"
 
   def project do
     [
@@ -47,15 +47,15 @@ defmodule PolymorphicEmbed.MixProject do
 
   defp deps do
     [
-      {:ecto, "~> 3.9"},
+      {:ecto, "~> 3.11"},
       {:jason, "~> 1.4"},
-      {:ex_doc, "~> 0.28", only: :dev},
-      {:ecto_sql, "~> 3.9", only: :test},
-      {:postgrex, "~> 0.16", only: :test},
-      {:query_builder, "~> 1.0", only: :test},
-      {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
-      {:excoveralls, "~> 0.15", only: :test},
-      {:credo, "~> 1.6", only: [:dev, :test], runtime: false}
+      {:ex_doc, "~> 0.33", only: :dev},
+      {:ecto_sql, "~> 3.11", only: :test},
+      {:postgrex, "~> 0.18", only: :test},
+      {:query_builder, "~> 1.4", only: :test},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:excoveralls, "~> 0.18", only: :test},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end
 
@@ -75,7 +75,7 @@ defmodule PolymorphicEmbed.MixProject do
 
   defp package do
     [
-      licenses: ["Apache 2.0"],
+      licenses: ["Apache-2.0"],
       maintainers: ["Mathieu Decaffmeyer"],
       links: %{
         "GitHub" => "https://github.com/mathieuprog/polymorphic_embed",

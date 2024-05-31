@@ -7,8 +7,8 @@ defmodule PolymorphicEmbed.Event do
   alias PolymorphicEmbed.Reminder
 
   schema "events" do
-    has_many(:reminders, Reminder)
-    embeds_many(:embedded_reminders, Reminder)
+    has_many :reminders, Reminder
+    embeds_many :embedded_reminders, Reminder
     timestamps()
   end
 

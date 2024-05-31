@@ -4,10 +4,9 @@ defmodule PolymorphicEmbed.Channel.SMS do
   import PolymorphicEmbed
 
   embedded_schema do
-    field(:number, :string)
-    field(:country_code, :integer)
-
-    field(:custom, :boolean, default: false)
+    field :number, :string
+    field :country_code, :integer
+    field :custom, :boolean, default: false
 
     polymorphic_embeds_one :provider,
       types: [

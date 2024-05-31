@@ -1041,8 +1041,8 @@ defmodule PolymorphicEmbedTest do
 
     reminder_module = get_module(Reminder, generator)
 
-    assert_raise FunctionClauseError,
-                 ~r"no function clause matching in PolymorphicEmbed.cast_polymorphic_embed/3",
+    assert_raise ArgumentError,
+                 ~r"cast_polymorphic_embed/3 only accepts a changeset as first argument",
                  fn ->
                    PolymorphicEmbed.cast_polymorphic_embed(struct(reminder_module), :channel)
                  end
@@ -1553,6 +1553,35 @@ defmodule PolymorphicEmbedTest do
     end
   end
 
+  test "cannot load the right struct but don't raise exception" do
+    generator = :polymorphic
+    reminder_module = get_module(Reminder, generator)
+    sms_module = get_module(Channel.SMS, generator)
+
+    struct(reminder_module,
+      date: ~U[2020-05-28 02:57:19Z],
+      text: "This is an SMS reminder",
+      channel:
+        struct(sms_module,
+          country_code: 1,
+          number: "02/807.05.53"
+        )
+    )
+    |> reminder_module.changeset(%{})
+    |> Repo.insert()
+
+    Ecto.Adapters.SQL.query!(
+      Repo,
+      "UPDATE reminders SET channel = jsonb_set(channel, '{my_type_field}', '\"some_deprecated_type\"')",
+      []
+    )
+
+    assert %{channel: %{"my_type_field" => "some_deprecated_type"}} =
+             reminder_module
+             |> QueryBuilder.where(text: "This is an SMS reminder")
+             |> Repo.one()
+  end
+
   test "changing type" do
     generator = :polymorphic
     reminder_module = get_module(Reminder, generator)
@@ -1633,6 +1662,18 @@ defmodule PolymorphicEmbedTest do
             age: "aquarius",
             address: "address"
           }
+        ],
+        contexts3: [
+          %{
+            __type__: "device",
+            ref: "12345",
+            type: "cellphone"
+          },
+          %{
+            __type__: "device",
+            ref: "56789",
+            type: "laptop"
+          }
         ]
       }
 
@@ -1642,7 +1683,11 @@ defmodule PolymorphicEmbedTest do
         |> Repo.insert!()
 
       Enum.each(reminder.contexts, fn context ->
-        assert context.id
+        assert Map.has_key?(context, :id)
+      end)
+
+      Enum.each(reminder.contexts3, fn context ->
+        refute Map.has_key?(context, :id)
       end)
 
       reminder =
@@ -1653,7 +1698,7 @@ defmodule PolymorphicEmbedTest do
       assert reminder.contexts |> length() == 2
 
       Enum.each(reminder.contexts, fn context ->
-        assert context.id
+        assert Map.has_key?(context, :id)
       end)
 
       if polymorphic?(generator) do
@@ -1690,85 +1735,23 @@ defmodule PolymorphicEmbedTest do
 
       assert Enum.at(reminder.contexts, 0).id != Enum.at(updated_reminder.contexts, 0).id
       assert Enum.at(reminder.contexts, 1).id != Enum.at(updated_reminder.contexts, 1).id
-    end
-  end
 
-  test "supports map with number keys" do
-    for generator <- @generators do
-      reminder_module = get_module(Reminder, generator)
-
+      # Assert that we have same ids when the provided context element has an id
       attrs = %{
-        "date" => ~U[2020-05-28 02:57:19Z],
-        "text" => "This is a reminder with multiple contexts #{generator}",
-        "channel" => %{
-          "my_type_field" => "sms",
-          "number" => "02/807.05.53",
-          "country_code" => 1,
-          "provider" => %{
-            "__type__" => "twilio",
-            "api_key" => "foo"
-          }
-        },
-        "contexts" => %{
-          "0" => %{
-            "__type__" => "device",
-            "ref" => "12345",
-            "type" => "cellphone",
-            "address" => "address"
+        contexts: [
+          %{
+            __type__: "device",
+            id: Enum.at(reminder.contexts, 0).id,
+            ref: "12345",
+            type: "cellphone",
+            address: "address"
           },
-          "1" => %{
-            "__type__" => "age",
-            "age" => "aquarius",
-            "address" => "address"
+          %{
+            __type__: "age",
+            age: "aquarius",
+            address: "address"
           }
-        }
-      }
-
-      reminder =
-        struct(reminder_module)
-        |> reminder_module.changeset(attrs)
-        |> Repo.insert!()
-
-      Enum.each(reminder.contexts, fn context ->
-        assert context.id
-      end)
-
-      reminder =
-        reminder_module
-        |> QueryBuilder.where(text: "This is a reminder with multiple contexts #{generator}")
-        |> Repo.one()
-
-      assert reminder.contexts |> length() == 2
-
-      Enum.each(reminder.contexts, fn context ->
-        assert context.id
-      end)
-
-      if polymorphic?(generator) do
-        assert Enum.at(reminder.contexts, 0).ref == "12345"
-        assert Enum.at(reminder.contexts, 0).type == "cellphone"
-        assert Enum.at(reminder.contexts, 1).age == "aquarius"
-      else
-        assert Enum.at(reminder.contexts, 0).address == "address"
-        assert Enum.at(reminder.contexts, 1).address == "address"
-      end
-
-      # add new list of contexts and assert that we have different ids
-
-      attrs = %{
-        "contexts" => %{
-          "0" => %{
-            "__type__" => "device",
-            "ref" => "12345",
-            "type" => "cellphone",
-            "address" => "address"
-          },
-          "1" => %{
-            "__type__" => "age",
-            "age" => "aquarius",
-            "address" => "address"
-          }
-        }
+        ]
       }
 
       updated_reminder =
@@ -1776,211 +1759,30 @@ defmodule PolymorphicEmbedTest do
         |> reminder_module.changeset(attrs)
         |> Repo.update!()
 
-      assert Enum.at(reminder.contexts, 0).id != Enum.at(updated_reminder.contexts, 0).id
+      assert Enum.at(reminder.contexts, 0).id == Enum.at(updated_reminder.contexts, 0).id
       assert Enum.at(reminder.contexts, 1).id != Enum.at(updated_reminder.contexts, 1).id
-    end
-  end
 
-  test "embeds_many with sort_param and drop_param" do
-    for generator <- @generators do
-      reminder_module = get_module(Reminder, generator)
-
+      # Make sure it also works for embeds without ids (`@primary_key false`)
       attrs = %{
-        "date" => ~U[2020-05-28 02:57:19Z],
-        "text" => "This is a reminder with multiple contexts #{generator}",
-        "channel" => %{
-          "my_type_field" => "sms",
-          "number" => "02/807.05.53",
-          "country_code" => 1,
-          "provider" => %{
-            "__type__" => "twilio",
-            "api_key" => "foo"
-          }
-        },
-        "contexts" => %{
-          "0" => %{
-            "__type__" => "device",
-            "ref" => "12345",
-            "type" => "cellphone",
-            "address" => "address"
+        contexts3: [
+          %{
+            __type__: "device",
+            ref: "12345",
+            type: "cellphone"
           },
-          "1" => %{
-            "__type__" => "age",
-            "age" => "aquarius",
-            "address" => "address"
-          },
-          "2" => %{
-            "__type__" => "age",
-            "age" => "aquarius_drop",
-            "address" => "address_drop"
+          %{
+            __type__: "device",
+            ref: "56789",
+            type: "laptop"
           }
-        },
-        "contexts_drop" => ["2"],
-        "contexts_sort" => ["1", "0", "2"]
+        ]
       }
 
-      reminder =
-        struct(reminder_module)
-        |> reminder_module.changeset(attrs)
-        |> Repo.insert!()
-
-      Enum.each(reminder.contexts, fn context ->
-        assert context.id
-      end)
-
-      reminder =
-        reminder_module
-        |> QueryBuilder.where(text: "This is a reminder with multiple contexts #{generator}")
-        |> Repo.one()
-
-      assert reminder.contexts |> length() == 2
-
-      Enum.each(reminder.contexts, fn context ->
-        assert context.id
-      end)
-
-      if polymorphic?(generator) do
-        assert Enum.at(reminder.contexts, 1).ref == "12345"
-        assert Enum.at(reminder.contexts, 1).type == "cellphone"
-        assert Enum.at(reminder.contexts, 0).age == "aquarius"
-      else
-        assert Enum.at(reminder.contexts, 1).address == "address"
-        assert Enum.at(reminder.contexts, 0).address == "address"
-      end
-
-      # add new list of contexts and assert that we have different ids
-
-      attrs = %{
-        "contexts" => %{
-          "0" => %{
-            "__type__" => "device",
-            "ref" => "12345",
-            "type" => "cellphone",
-            "address" => "address"
-          },
-          "1" => %{
-            "__type__" => "age",
-            "age" => "aquarius",
-            "address" => "address"
-          }
-        }
-      }
-
-      updated_reminder =
-        reminder
-        |> reminder_module.changeset(attrs)
-        |> Repo.update!()
-
-      assert Enum.at(reminder.contexts, 0).id != Enum.at(updated_reminder.contexts, 0).id
-      assert Enum.at(reminder.contexts, 1).id != Enum.at(updated_reminder.contexts, 1).id
-    end
-  end
-
-  test "embeds_many with new sort_param" do
-    for generator <- @generators do
-      reminder_module = get_module(Reminder, generator)
-
-      attrs = %{
-        "date" => ~U[2020-05-28 02:57:19Z],
-        "text" => "This is a reminder with multiple contexts #{generator}",
-        "channel" => %{
-          "my_type_field" => "sms",
-          "number" => "02/807.05.53",
-          "country_code" => 1,
-          "provider" => %{
-            "__type__" => "twilio",
-            "api_key" => "foo"
-          }
-        },
-        "contexts" => %{
-          "0" => %{
-            "__type__" => "device",
-            "ref" => "12345",
-            "type" => "cellphone",
-            "address" => "address"
-          },
-          "1" => %{
-            "__type__" => "age",
-            "age" => "aquarius",
-            "address" => "address"
-          },
-          "2" => %{
-            "__type__" => "age",
-            "age" => "aquarius_drop",
-            "address" => "address_drop"
-          }
-        },
-        "contexts_drop" => ["2"],
-        "contexts_sort" => ["1", "0", "2", "new"]
-      }
-
-      assert changeset =
-               %Ecto.Changeset{valid?: false} =
-               struct(reminder_module)
+      assert {:ok, _} =
+               reminder
                |> reminder_module.changeset(attrs)
-
-      assert Enum.at(changeset.changes.contexts, 2).errors == [
-               address: {"can't be blank", [validation: :required]}
-             ]
+               |> Repo.update()
     end
-  end
-
-  test "embeds_many with sort_param but no assoc param" do
-    for generator <- @generators do
-      reminder_module = get_module(Reminder, generator)
-
-      attrs = %{
-        "date" => ~U[2020-05-28 02:57:19Z],
-        "text" => "This is a reminder with multiple contexts #{generator}",
-        "channel" => %{
-          "my_type_field" => "sms",
-          "number" => "02/807.05.53",
-          "country_code" => 1,
-          "provider" => %{
-            "__type__" => "twilio",
-            "api_key" => "foo"
-          }
-        },
-        "contexts_drop" => [],
-        "contexts_sort" => ["on"]
-      }
-
-      assert changeset =
-               %Ecto.Changeset{valid?: false} =
-               struct(reminder_module)
-               |> reminder_module.changeset(attrs)
-
-      assert Enum.at(changeset.changes.contexts, 0).errors == [
-               address: {"can't be blank", [validation: :required]}
-             ]
-    end
-  end
-
-  test "embeds_many with sort_param but no assoc param (sort_create function)" do
-    attrs = %{
-      "date" => ~U[2020-05-28 02:57:19Z],
-      "text" => "This is a reminder with multiple contexts",
-      "channel" => %{
-        "my_type_field" => "sms",
-        "number" => "02/807.05.53",
-        "country_code" => 1,
-        "provider" => %{
-          "__type__" => "twilio",
-          "api_key" => "foo"
-        }
-      },
-      "contexts2_drop" => [],
-      "contexts2_sort" => ["on"]
-    }
-
-    assert changeset =
-             %Ecto.Changeset{valid?: false} =
-             struct(PolymorphicEmbed.Reminder)
-             |> PolymorphicEmbed.Reminder.changeset(attrs)
-
-    assert Enum.at(changeset.changes.contexts2, 0).errors == [
-             address: {"can't be blank", [validation: :required]}
-           ]
   end
 
   test "generate ID for single embed in data" do
@@ -2300,6 +2102,298 @@ defmodule PolymorphicEmbedTest do
 
       assert inserted_result.contexts == []
     end
+  end
+
+  test "supports map with number keys" do
+    for generator <- @generators do
+      reminder_module = get_module(Reminder, generator)
+
+      attrs = %{
+        "date" => ~U[2020-05-28 02:57:19Z],
+        "text" => "This is a reminder with multiple contexts #{generator}",
+        "channel" => %{
+          "my_type_field" => "sms",
+          "number" => "02/807.05.53",
+          "country_code" => 1,
+          "provider" => %{
+            "__type__" => "twilio",
+            "api_key" => "foo"
+          }
+        },
+        "contexts" => %{
+          "0" => %{
+            "__type__" => "device",
+            "ref" => "12345",
+            "type" => "cellphone",
+            "address" => "address"
+          },
+          "1" => %{
+            "__type__" => "age",
+            "age" => "aquarius",
+            "address" => "address"
+          }
+        }
+      }
+
+      reminder =
+        struct(reminder_module)
+        |> reminder_module.changeset(attrs)
+        |> Repo.insert!()
+
+      Enum.each(reminder.contexts, fn context ->
+        assert context.id
+      end)
+
+      reminder =
+        reminder_module
+        |> QueryBuilder.where(text: "This is a reminder with multiple contexts #{generator}")
+        |> Repo.one()
+
+      assert reminder.contexts |> length() == 2
+
+      Enum.each(reminder.contexts, fn context ->
+        assert context.id
+      end)
+
+      if polymorphic?(generator) do
+        assert Enum.at(reminder.contexts, 0).ref == "12345"
+        assert Enum.at(reminder.contexts, 0).type == "cellphone"
+        assert Enum.at(reminder.contexts, 1).age == "aquarius"
+      else
+        assert Enum.at(reminder.contexts, 0).address == "address"
+        assert Enum.at(reminder.contexts, 1).address == "address"
+      end
+
+      # add new list of contexts and assert that we have different ids
+
+      attrs = %{
+        "contexts" => %{
+          "0" => %{
+            "__type__" => "device",
+            "ref" => "12345",
+            "type" => "cellphone",
+            "address" => "address"
+          },
+          "1" => %{
+            "__type__" => "age",
+            "age" => "aquarius",
+            "address" => "address"
+          }
+        }
+      }
+
+      updated_reminder =
+        reminder
+        |> reminder_module.changeset(attrs)
+        |> Repo.update!()
+
+      assert Enum.at(reminder.contexts, 0).id != Enum.at(updated_reminder.contexts, 0).id
+      assert Enum.at(reminder.contexts, 1).id != Enum.at(updated_reminder.contexts, 1).id
+    end
+  end
+
+  test "embeds_many with sort_param and drop_param" do
+    for generator <- @generators do
+      reminder_module = get_module(Reminder, generator)
+
+      attrs = %{
+        "date" => ~U[2020-05-28 02:57:19Z],
+        "text" => "This is a reminder with multiple contexts #{generator}",
+        "channel" => %{
+          "my_type_field" => "sms",
+          "number" => "02/807.05.53",
+          "country_code" => 1,
+          "provider" => %{
+            "__type__" => "twilio",
+            "api_key" => "foo"
+          }
+        },
+        "contexts" => %{
+          "0" => %{
+            "__type__" => "device",
+            "ref" => "12345",
+            "type" => "cellphone",
+            "address" => "address"
+          },
+          "1" => %{
+            "__type__" => "age",
+            "age" => "aquarius",
+            "address" => "address"
+          },
+          "2" => %{
+            "__type__" => "age",
+            "age" => "aquarius_drop",
+            "address" => "address_drop"
+          }
+        },
+        "contexts_drop" => ["2"],
+        "contexts_sort" => ["1", "0", "2"]
+      }
+
+      reminder =
+        struct(reminder_module)
+        |> reminder_module.changeset(attrs)
+        |> Repo.insert!()
+
+      Enum.each(reminder.contexts, fn context ->
+        assert context.id
+      end)
+
+      reminder =
+        reminder_module
+        |> QueryBuilder.where(text: "This is a reminder with multiple contexts #{generator}")
+        |> Repo.one()
+
+      assert reminder.contexts |> length() == 2
+
+      Enum.each(reminder.contexts, fn context ->
+        assert context.id
+      end)
+
+      if polymorphic?(generator) do
+        assert Enum.at(reminder.contexts, 1).ref == "12345"
+        assert Enum.at(reminder.contexts, 1).type == "cellphone"
+        assert Enum.at(reminder.contexts, 0).age == "aquarius"
+      else
+        assert Enum.at(reminder.contexts, 1).address == "address"
+        assert Enum.at(reminder.contexts, 0).address == "address"
+      end
+
+      # add new list of contexts and assert that we have different ids
+
+      attrs = %{
+        "contexts" => %{
+          "0" => %{
+            "__type__" => "device",
+            "ref" => "12345",
+            "type" => "cellphone",
+            "address" => "address"
+          },
+          "1" => %{
+            "__type__" => "age",
+            "age" => "aquarius",
+            "address" => "address"
+          }
+        }
+      }
+
+      updated_reminder =
+        reminder
+        |> reminder_module.changeset(attrs)
+        |> Repo.update!()
+
+      assert Enum.at(reminder.contexts, 0).id != Enum.at(updated_reminder.contexts, 0).id
+      assert Enum.at(reminder.contexts, 1).id != Enum.at(updated_reminder.contexts, 1).id
+    end
+  end
+
+  test "embeds_many with new sort_param" do
+    for generator <- @generators do
+      reminder_module = get_module(Reminder, generator)
+
+      attrs = %{
+        "date" => ~U[2020-05-28 02:57:19Z],
+        "text" => "This is a reminder with multiple contexts #{generator}",
+        "channel" => %{
+          "my_type_field" => "sms",
+          "number" => "02/807.05.53",
+          "country_code" => 1,
+          "provider" => %{
+            "__type__" => "twilio",
+            "api_key" => "foo"
+          }
+        },
+        "contexts" => %{
+          "0" => %{
+            "__type__" => "device",
+            "ref" => "12345",
+            "type" => "cellphone",
+            "address" => "address"
+          },
+          "1" => %{
+            "__type__" => "age",
+            "age" => "aquarius",
+            "address" => "address"
+          },
+          "2" => %{
+            "__type__" => "age",
+            "age" => "aquarius_drop",
+            "address" => "address_drop"
+          }
+        },
+        "contexts_drop" => ["2"],
+        "contexts_sort" => ["1", "0", "2", "new"]
+      }
+
+      assert changeset =
+               %Ecto.Changeset{valid?: false} =
+               struct(reminder_module)
+               |> reminder_module.changeset(attrs)
+
+      assert Enum.at(changeset.changes.contexts, 2).errors == [
+               address: {"can't be blank", [validation: :required]}
+             ]
+    end
+  end
+
+  test "embeds_many with sort_param but no assoc param" do
+    for generator <- @generators do
+      reminder_module = get_module(Reminder, generator)
+
+      attrs = %{
+        "date" => ~U[2020-05-28 02:57:19Z],
+        "text" => "This is a reminder with multiple contexts #{generator}",
+        "channel" => %{
+          "my_type_field" => "sms",
+          "number" => "02/807.05.53",
+          "country_code" => 1,
+          "provider" => %{
+            "__type__" => "twilio",
+            "api_key" => "foo"
+          }
+        },
+        "contexts_drop" => [],
+        "contexts_sort" => ["on"]
+      }
+
+      assert changeset =
+               %Ecto.Changeset{valid?: false} =
+               struct(reminder_module)
+               |> reminder_module.changeset(attrs)
+
+      assert Enum.at(changeset.changes.contexts, 0).errors == [
+               address: {"can't be blank", [validation: :required]}
+             ]
+    end
+  end
+
+  test "embeds_many with sort_param but no assoc param (sort_create function)" do
+    reminder_module = get_module(Reminder, :polymorphic)
+
+    attrs = %{
+      "date" => ~U[2020-05-28 02:57:19Z],
+      "text" => "This is a reminder with multiple contexts",
+      "channel" => %{
+        "my_type_field" => "sms",
+        "number" => "02/807.05.53",
+        "country_code" => 1,
+        "provider" => %{
+          "__type__" => "twilio",
+          "api_key" => "foo"
+        }
+      },
+      "contexts2_drop" => [],
+      "contexts2_sort" => ["on"]
+    }
+
+    assert changeset =
+             %Ecto.Changeset{valid?: false} =
+             struct(reminder_module)
+             |> reminder_module.changeset(attrs)
+
+    assert Enum.at(changeset.changes.contexts2, 0).errors == [
+             address: {"can't be blank", [validation: :required]}
+           ]
   end
 
   describe "get_polymorphic_type/3" do

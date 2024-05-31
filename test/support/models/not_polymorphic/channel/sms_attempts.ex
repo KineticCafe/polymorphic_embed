@@ -5,8 +5,8 @@ defmodule PolymorphicEmbed.Regular.Channel.SMSAttempts do
   @primary_key false
 
   embedded_schema do
-    field(:date, :utc_datetime)
-    embeds_one(:result, PolymorphicEmbed.Regular.Channel.SMSResult)
+    field :date, :utc_datetime
+    embeds_one :result, PolymorphicEmbed.Regular.Channel.SMSResult
   end
 
   def changeset(struct, attrs) do
