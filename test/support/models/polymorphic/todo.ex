@@ -7,8 +7,8 @@ defmodule PolymorphicEmbed.Todo do
   alias PolymorphicEmbed.Reminder
 
   schema "todos" do
-    belongs_to(:reminder, Reminder)
-    embeds_one(:embedded_reminder, Reminder)
+    belongs_to :reminder, Reminder
+    embeds_one :embedded_reminder, Reminder
     timestamps()
   end
 

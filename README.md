@@ -63,7 +63,7 @@ defmodule MyApp.Channel.Email do
 
   def changeset(email, params) do
     email
-    |> cast(params, ~w(address confirmed)a)
+    |> cast(params, [:address, :confirmed])
     |> validate_required(:address)
     |> validate_length(:address, min: 4)
   end
@@ -73,11 +73,18 @@ end
 ```elixir
 defmodule MyApp.Channel.SMS do
   use Ecto.Schema
+  import Ecto.Changeset
 
   @primary_key false
 
   embedded_schema do
     field :number, :string
+  end
+
+  def changeset(sms, params) do
+    sms
+    |> cast(params, [:number])
+    |> validate_required(:number)
   end
 end
 ```
@@ -89,9 +96,8 @@ In your migration file, you may use the type `:map` for both
 add :channel, :map
 ```
 
-[It is not
-recommended](https://hexdocs.pm/ecto/3.8.4/Ecto.Schema.html#embeds_many/3) to
-use `{:array, :map}` for a list of embeds.
+[It is not recommended](https://hexdocs.pm/ecto/3.11.2/Ecto.Schema.html#embeds_many/3)
+to use `{:array, :map}` for a list of embeds.
 
 ### `cast_polymorphic_embed/3`
 
@@ -114,6 +120,16 @@ changeset
 )
 ```
 
+- `:drop_param` – see
+  [sorting-and-deleting-from-many-collections](https://hexdocs.pm/ecto/3.11.2/Ecto.Changeset.html#cast_assoc/3-sorting-and-deleting-from-many-collections).
+
+- `:sort_param` – see
+  [sorting-and-deleting-from-many-collections](https://hexdocs.pm/ecto/3.11.2/Ecto.Changeset.html#cast_assoc/3-sorting-and-deleting-from-many-collections).
+
+- `:default_type_on_sort_create` – in some cases,
+  [`sort` creates a new entry](https://github.com/elixir-ecto/ecto/blob/v3.11/test/ecto/changeset/embedded_test.exs#L464);
+  this option specifies which type to use by default for the entry.
+
 ### PolymorphicEmbed Ecto type
 
 The `:types` option for the `PolymorphicEmbed` custom type contains a keyword
@@ -122,35 +138,35 @@ with the corresponding embedded schema module.
 
 There are two strategies to detect the right embedded schema to use:
 
-1.  A type field (`"__type__"`):
+1. A type field (`"__type__"`):
 
-    ```elixir
-    [sms: MyApp.Channel.SMS]
-    ```
+   ```elixir
+   [sms: MyApp.Channel.SMS]
+   ```
 
-    When receiving parameters to be cast (e.g. from a form), we expect
-    a `"__type__"` (or `:__type__`) parameter containing the type of channel
-    (`"email"` or `"sms"`).
+   When receiving parameters to be cast (e.g. from a form), we expect a
+   `"__type__"` (or `:__type__`) parameter containing the type of channel
+   (`"email"` or `"sms"`).
 
-2.  Specific fields:
+2. Specific fields:
 
-    ```elixir
-    [
-      email: [
-        module: MyApp.Channel.Email,
-        identify_by_fields: [:address, :confirmed]
-      ]
-    ]
-    ```
+   ```elixir
+   [
+     email: [
+       module: MyApp.Channel.Email,
+       identify_by_fields: [:address, :confirmed]
+     ]
+   ]
+   ```
 
-    Here we specify how the type can be determined based on the presence of
-    given fields. In this example, if the data contains `:address` and
-    `:confirmed` parameters (or their string version), the type is `:email`.
-    A `"__type__"` parameter is then no longer required.
+   Here we specify how the type can be determined based on the presence of given
+   fields. In this example, if the data contains `:address` and `:confirmed`
+   parameters (or their string version), the type is `:email`. A `"__type__"`
+   parameter is then no longer required.
 
-    Note that you may still include a `__type__` parameter that will take
-    precedence over this strategy (this could still be useful if you need to
-    store incomplete data, which might not allow identifying the type).
+   Note that you may still include a `__type__` parameter that will take
+   precedence over this strategy (this could still be useful if you need to
+   store incomplete data, which might not allow identifying the type).
 
 #### List of polymorphic embeds
 
@@ -163,15 +179,16 @@ polymorphic_embeds_many :contexts,
     age: MyApp.Context.Age,
     device: MyApp.Context.Device
   ],
-  on_type_not_found: :raise
+  on_type_not_found: :raise,
+  nilify_unlisted_types_on_load: [:deprecated_type]
 ```
 
 #### Options
 
 - `:types` – discussed above.
 - `:type_field` – specify a custom type field. Defaults to `:__type__`.
-- `:on_type_not_found` – specify what to do if the embed's type cannot be inferred.
-  Possible values are
+- `:on_type_not_found` – specify what to do if the embed's type cannot be
+  inferred. Possible values are
 
   - `:raise`: raise an error
   - `:changeset_error`: add a changeset error
@@ -180,13 +197,17 @@ polymorphic_embeds_many :contexts,
 
   By default, a changeset error "is invalid" is added.
 
-Using this function, you have to render the necessary hidden inputs manually as shown above.
+- `:retain_unlisted_types_on_load`: allow unconfigured types to be loaded
+  without raising an error. Useful for handling deprecated structs still present
+  in the database.
+- `:nilify_unlisted_types_on_load`: same as `:retain_unlisted_types_on_load`,
+  but nilify the struct on load.
 
 ### Get the type of a polymorphic embed
 
 Sometimes you need to serialize the polymorphic embed and, once in the
-front-end, need to distinguish them. `get_polymorphic_type/3` returns the type
-of the polymorphic embed:
+front-end, need to distinguish them. `PolymorphicEmbed.get_polymorphic_type/3`
+returns the type of the polymorphic embed:
 
 ```elixir
 PolymorphicEmbed.get_polymorphic_type(Reminder, :channel, SMS) == :sms
@@ -200,8 +221,8 @@ when working with polymorphic embeds.
 
 ## Features
 
-- Detect which types to use for the data being `cast`-ed, based on fields
-  present in the data (no need for a _type_ field in the data)
+- Detect which types to use for the data being `cast`, based on fields present
+  in the data (no need for a _type_ field in the data)
 - Run changeset validations when a `changeset/2` function is present (when
   absent, the library will introspect the fields to cast)
 - Support for nested polymorphic embeds
@@ -215,12 +236,12 @@ Add `polymorphic_embed` for Elixir as a dependency in your `mix.exs` file:
 ```elixir
 def deps do
   [
-    {:polymorphic_embed, "~> 3.0.5"}
+    {:polymorphic_embed, "~> 4.0.0-kinetic.1",
+     github: "KineticCafe/polymorphic_embed", tag: "v4.0.0-kinetic.1"}
   ]
 end
 ```
 
 ## HexDocs
 
-HexDocs documentation can be found at
-[https://hexdocs.pm/polymorphic_embed](https://hexdocs.pm/polymorphic_embed).
+HexDocs documentation can be found at <https://hexdocs.pm/polymorphic_embed>.
