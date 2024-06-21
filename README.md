@@ -130,7 +130,7 @@ changeset
   [`sort` creates a new entry](https://github.com/elixir-ecto/ecto/blob/v3.11/test/ecto/changeset/embedded_test.exs#L464);
   this option specifies which type to use by default for the entry.
 
-### PolymorphicEmbed Ecto type
+### PolymorphicEmbed type
 
 The `:types` option for the `PolymorphicEmbed` custom type contains a keyword
 list mapping an atom representing the type (in this example `:email` and `:sms`)

@@ -505,27 +505,30 @@ defmodule PolymorphicEmbedTest do
           &Ecto.Changeset.traverse_errors/2
         end
 
-      %{
-        embedded_reminders: [
-          %{
-            channel: %{
-              country_code: ["can't be blank"],
-              number: ["can't be blank"],
-              provider: ["can't be blank"]
-            },
-            contexts: [%{country: %{name: ["can't be blank"]}}, %{address: ["can't be blank"]}],
-            date: ["can't be blank"]
-          }
-        ]
-      } =
-        traverse_errors_fun.(
-          changeset,
-          fn {msg, opts} ->
-            Enum.reduce(opts, msg, fn {key, value}, acc ->
-              String.replace(acc, "%{#{key}}", to_string(value))
-            end)
-          end
-        )
+      assert %{
+               embedded_reminders: [
+                 %{
+                   channel: %{
+                     country_code: ["can't be blank"],
+                     number: ["can't be blank"],
+                     provider: ["can't be blank"]
+                   },
+                   contexts: [
+                     %{country: %{name: ["can't be blank"]}},
+                     %{address: ["can't be blank"]}
+                   ],
+                   date: ["can't be blank"]
+                 }
+               ]
+             } =
+               traverse_errors_fun.(
+                 changeset,
+                 fn {msg, opts} ->
+                   Enum.reduce(opts, msg, fn {key, value}, acc ->
+                     String.replace(acc, "%{#{key}}", to_string(value))
+                   end)
+                 end
+               )
     end
   end
 
@@ -1029,7 +1032,7 @@ defmodule PolymorphicEmbedTest do
       }
     }
 
-    assert_raise RuntimeError, ~r"could not infer polymorphic embed from data", fn ->
+    assert_raise RuntimeError, ~r"could not infer polymorphic embed type from data", fn ->
       struct(reminder_module)
       |> reminder_module.changeset(sms_reminder_attrs)
       |> Repo.insert()
@@ -1516,7 +1519,7 @@ defmodule PolymorphicEmbedTest do
       }
     }
 
-    assert_raise RuntimeError, ~r"could not infer polymorphic embed from data", fn ->
+    assert_raise RuntimeError, ~r"could not infer polymorphic embed type from data", fn ->
       struct(reminder_module)
       |> reminder_module.changeset(sms_reminder_attrs)
       |> Repo.insert()
@@ -1546,11 +1549,13 @@ defmodule PolymorphicEmbedTest do
       []
     )
 
-    assert_raise RuntimeError, ~r"could not infer polymorphic embed from data .* \"foo\"", fn ->
-      reminder_module
-      |> QueryBuilder.where(text: "This is an SMS reminder")
-      |> Repo.one()
-    end
+    assert_raise RuntimeError,
+                 ~r"could not infer polymorphic embed type from data .* \"foo\"",
+                 fn ->
+                   reminder_module
+                   |> QueryBuilder.where(text: "This is an SMS reminder")
+                   |> Repo.one()
+                 end
   end
 
   test "cannot load the right struct but don't raise exception" do
@@ -2398,7 +2403,7 @@ defmodule PolymorphicEmbedTest do
 
   describe "get_polymorphic_type/3" do
     test "returns the type for a module" do
-      assert PolymorphicEmbed.get_polymorphic_type(
+      assert PolymorphicEmbed.Utils.get_polymorphic_type(
                PolymorphicEmbed.Reminder,
                :channel,
                PolymorphicEmbed.Channel.SMS
@@ -2406,7 +2411,7 @@ defmodule PolymorphicEmbedTest do
     end
 
     test "returns the type for a struct" do
-      assert PolymorphicEmbed.get_polymorphic_type(
+      assert PolymorphicEmbed.Utils.get_polymorphic_type(
                PolymorphicEmbed.Reminder,
                :channel,
                %PolymorphicEmbed.Channel.Email{
@@ -2419,14 +2424,18 @@ defmodule PolymorphicEmbedTest do
 
   describe "types/2" do
     test "returns the types for a polymoprhic embed field" do
-      assert PolymorphicEmbed.types(PolymorphicEmbed.Reminder, :channel) ==
+      assert PolymorphicEmbed.Utils.types(PolymorphicEmbed.Reminder, :channel) ==
                [:sms, :email]
     end
   end
 
   describe "get_polymorphic_module/3" do
     test "returns the module for a type" do
-      assert PolymorphicEmbed.get_polymorphic_module(PolymorphicEmbed.Reminder, :channel, :sms) ==
+      assert PolymorphicEmbed.Utils.get_polymorphic_module(
+               PolymorphicEmbed.Reminder,
+               :channel,
+               :sms
+             ) ==
                PolymorphicEmbed.Channel.SMS
     end
   end
