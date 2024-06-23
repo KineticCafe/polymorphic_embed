@@ -53,13 +53,13 @@ defmodule PolymorphicEmbed.Changeset do
   end
 
   def cast_polymorphic_embed(%Changeset{} = changeset, field, cast_opts) do
-    field_params = Utils.get_field_params(changeset.data.__struct__, field)
-    array? = field_params.cardinality == :many
+    embed = Utils.get_field_params(changeset.data.__struct__, field)
+    array? = embed.cardinality == :many
 
     required = Keyword.get(cast_opts, :required, false)
     on_cast = Keyword.get(cast_opts, :with, nil)
 
-    changeset_fun = &changeset_fun(&1, &2, on_cast, field_params.types_metadata)
+    changeset_fun = &changeset_fun(&1, &2, on_cast, embed.types_metadata)
 
     params = changeset.params || %{}
 
@@ -74,7 +74,7 @@ defmodule PolymorphicEmbed.Changeset do
       # consider sort and drop params even if the assoc param was not given, as in Ecto
       # https://github.com/elixir-ecto/ecto/commit/afc694ce723f047e9fe7828ad16cea2de82eb217
       :error when (array? and is_list(sort)) or is_list(drop) ->
-        create_sort_default = fn -> sort_create(Enum.into(cast_opts, %{}), field_params) end
+        create_sort_default = fn -> sort_create(Enum.into(cast_opts, %{}), embed) end
         params_for_field = apply_sort_drop(%{}, sort, drop, create_sort_default)
 
         cast_polymorphic_embeds_many(
@@ -82,7 +82,7 @@ defmodule PolymorphicEmbed.Changeset do
           field,
           changeset_fun,
           params_for_field,
-          field_params,
+          embed,
           invalid_message
         )
 
@@ -118,7 +118,7 @@ defmodule PolymorphicEmbed.Changeset do
         changeset
 
       {:ok, params_for_field} when array? ->
-        create_sort_default = fn -> sort_create(Enum.into(cast_opts, %{}), field_params) end
+        create_sort_default = fn -> sort_create(Enum.into(cast_opts, %{}), embed) end
         params_for_field = apply_sort_drop(params_for_field, sort, drop, create_sort_default)
 
         cast_polymorphic_embeds_many(
@@ -126,7 +126,7 @@ defmodule PolymorphicEmbed.Changeset do
           field,
           changeset_fun,
           params_for_field,
-          field_params,
+          embed,
           invalid_message
         )
 
@@ -136,7 +136,7 @@ defmodule PolymorphicEmbed.Changeset do
           field,
           changeset_fun,
           params_for_field,
-          field_params,
+          embed,
           invalid_message
         )
     end
@@ -151,14 +151,14 @@ defmodule PolymorphicEmbed.Changeset do
          field,
          changeset_fun,
          params,
-         field_params,
+         embed,
          invalid_message
        ) do
     %{
       on_type_not_found: on_type_not_found
-    } = field_params
+    } = embed
 
-    type_param = Atom.to_string(field_params.type_field)
+    type_param = Atom.to_string(embed.type_field)
 
     data_for_field = Map.fetch!(changeset.data, field)
 
@@ -166,7 +166,7 @@ defmodule PolymorphicEmbed.Changeset do
     # from the parameters, or if the found type hasn't changed, pass the data
     # to the changeset.
 
-    case action_and_struct(params, type_param, field_params.types_metadata, data_for_field) do
+    case action_and_struct(params, type_param, embed.types_metadata, data_for_field) do
       :type_not_found when on_type_not_found == :raise ->
         Utils.cannot_infer_type_from_data!(params)
 
@@ -198,21 +198,17 @@ defmodule PolymorphicEmbed.Changeset do
          changeset,
          field,
          changeset_fun,
-         list_params,
-         field_params,
+         value_list,
+         embed,
          invalid_message
        ) do
-    %{
-      on_type_not_found: on_type_not_found
-    } = field_params
-
-    type_param = Atom.to_string(field_params.type_field)
-
-    list_data_for_field = Map.fetch!(changeset.data, field)
+    %{on_type_not_found: on_type_not_found} = embed
+    type_param = Atom.to_string(embed.type_field)
+    current_list = Map.fetch!(changeset.data, field)
 
     embeds =
-      Enum.map(list_params, fn params ->
-        case Utils.infer_type_from_data(params, type_param, field_params.types_metadata) do
+      Enum.map(value_list, fn params ->
+        case Utils.infer_type_from_data(params, type_param, embed.types_metadata) do
           nil when on_type_not_found == :raise ->
             Utils.cannot_infer_type_from_data!(params)
 
@@ -224,7 +220,7 @@ defmodule PolymorphicEmbed.Changeset do
 
           module ->
             data_for_field =
-              Enum.find(list_data_for_field, fn
+              Enum.find(current_list, fn
                 %{id: id} = datum when not is_nil(id) ->
                   id == params[:id] and datum.__struct__ == module
 
@@ -329,15 +325,15 @@ defmodule PolymorphicEmbed.Changeset do
     end
   end
 
-  defp sort_create(%{sort_param: _} = cast_opts, field_params) do
+  defp sort_create(%{sort_param: _} = cast_opts, embed) do
     default_type = Map.get(cast_opts, :default_type_on_sort_create)
 
     case default_type do
       nil ->
         # If type is not provided, use the first type from types_metadata
-        [first_type_metadata | _] = field_params.types_metadata
+        [first_type_metadata | _] = embed.types_metadata
         first_type = first_type_metadata.type
-        %{Atom.to_string(field_params.type_field) => first_type}
+        %{Atom.to_string(embed.type_field) => first_type}
 
       _ ->
         default_type =
@@ -347,11 +343,11 @@ defmodule PolymorphicEmbed.Changeset do
           end
 
         # If type is provided, ensure it exists in types_metadata
-        unless Enum.find(field_params.types_metadata, &(&1.type === default_type)) do
+        unless Enum.find(embed.types_metadata, &(&1.type === default_type)) do
           raise "Incorrect type atom #{inspect(default_type)}"
         end
 
-        %{Atom.to_string(field_params.type_field) => default_type}
+        %{Atom.to_string(embed.type_field) => default_type}
     end
   end
 

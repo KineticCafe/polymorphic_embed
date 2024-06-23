@@ -8,12 +8,14 @@ defmodule PolymorphicEmbed.Type do
 
   @type t() :: any()
 
-  @enforce_keys [:cardinality, :type_field, :types_metadata]
+  @enforce_keys [:cardinality, :type_field, :types_metadata, :field, :schema]
 
   defstruct [
     :cardinality,
     :type_field,
     :types_metadata,
+    :field,
+    :schema,
     default: nil,
     on_type_not_found: :changeset_error,
     nilify_unlisted_types_on_load: [],

@@ -3,6 +3,7 @@ defmodule PolymorphicEmbedTest do
 
   doctest PolymorphicEmbed
 
+  alias Ecto.Changeset
   alias PolymorphicEmbed.Repo
 
   @generators [:not_polymorphic, :polymorphic]
@@ -97,18 +98,18 @@ defmodule PolymorphicEmbedTest do
           country_code: 10
         )
 
-      sms_changeset = Ecto.Changeset.change(sms_module)
+      sms_changeset = Changeset.change(sms_module)
 
       {:ok, update_result} =
         reminder
-        |> Ecto.Changeset.change()
-        |> Ecto.Changeset.put_change(:channel, nil)
+        |> Changeset.change()
+        |> Changeset.put_change(:channel, nil)
         |> Repo.update()
 
       {:ok, _} =
         update_result
-        |> Ecto.Changeset.change()
-        |> Ecto.Changeset.put_change(:channel, sms_changeset)
+        |> Changeset.change()
+        |> Changeset.put_change(:channel, sms_changeset)
         |> Repo.update()
     end
   end
@@ -161,7 +162,7 @@ defmodule PolymorphicEmbedTest do
         |> Repo.insert()
 
       assert {:error,
-              %Ecto.Changeset{
+              %Changeset{
                 action: :insert,
                 valid?: false,
                 errors: errors,
@@ -215,7 +216,7 @@ defmodule PolymorphicEmbedTest do
       insert_result = Repo.insert(changeset)
 
       assert {:error,
-              %Ecto.Changeset{
+              %Changeset{
                 action: :insert,
                 valid?: false,
                 errors: errors,
@@ -264,7 +265,7 @@ defmodule PolymorphicEmbedTest do
         if polymorphic?(generator) do
           &PolymorphicEmbed.traverse_errors/2
         else
-          &Ecto.Changeset.traverse_errors/2
+          &Changeset.traverse_errors/2
         end
 
       %{
@@ -322,7 +323,7 @@ defmodule PolymorphicEmbedTest do
       insert_result = Repo.insert(changeset)
 
       assert {:error,
-              %Ecto.Changeset{
+              %Changeset{
                 action: :insert,
                 valid?: false,
                 errors: errors,
@@ -381,7 +382,7 @@ defmodule PolymorphicEmbedTest do
         if polymorphic?(generator) do
           &PolymorphicEmbed.traverse_errors/2
         else
-          &Ecto.Changeset.traverse_errors/2
+          &Changeset.traverse_errors/2
         end
 
       %{
@@ -443,7 +444,7 @@ defmodule PolymorphicEmbedTest do
       insert_result = Repo.insert(changeset)
 
       assert {:error,
-              %Ecto.Changeset{
+              %Changeset{
                 action: :insert,
                 valid?: false,
                 errors: errors,
@@ -502,7 +503,7 @@ defmodule PolymorphicEmbedTest do
         if polymorphic?(generator) do
           &PolymorphicEmbed.traverse_errors/2
         else
-          &Ecto.Changeset.traverse_errors/2
+          &Changeset.traverse_errors/2
         end
 
       assert %{
@@ -565,7 +566,7 @@ defmodule PolymorphicEmbedTest do
       insert_result = Repo.insert(changeset)
 
       assert {:error,
-              %Ecto.Changeset{
+              %Changeset{
                 action: :insert,
                 valid?: false,
                 errors: errors,
@@ -622,7 +623,7 @@ defmodule PolymorphicEmbedTest do
         if polymorphic?(generator) do
           &PolymorphicEmbed.traverse_errors/2
         else
-          &Ecto.Changeset.traverse_errors/2
+          &Changeset.traverse_errors/2
         end
 
       %{
@@ -680,7 +681,7 @@ defmodule PolymorphicEmbedTest do
       insert_result = Repo.insert(changeset)
 
       assert {:error,
-              %Ecto.Changeset{
+              %Changeset{
                 action: :insert,
                 valid?: false,
                 errors: errors,
@@ -737,7 +738,7 @@ defmodule PolymorphicEmbedTest do
         if polymorphic?(generator) do
           &PolymorphicEmbed.traverse_errors/2
         else
-          &Ecto.Changeset.traverse_errors/2
+          &Changeset.traverse_errors/2
         end
 
       %{
@@ -796,7 +797,7 @@ defmodule PolymorphicEmbedTest do
       insert_result = Repo.insert(changeset)
 
       assert {:error,
-              %Ecto.Changeset{
+              %Changeset{
                 action: :insert,
                 valid?: false,
                 errors: errors,
@@ -834,7 +835,7 @@ defmodule PolymorphicEmbedTest do
         if polymorphic?(generator) do
           &PolymorphicEmbed.traverse_errors/2
         else
-          &Ecto.Changeset.traverse_errors/2
+          &Changeset.traverse_errors/2
         end
 
       %{
@@ -901,7 +902,7 @@ defmodule PolymorphicEmbedTest do
         reminder
         |> reminder_module.changeset(%{channel: %{provider: nil}})
 
-      assert %Ecto.Changeset{
+      assert %Changeset{
                action: nil,
                valid?: false,
                errors: [],
@@ -919,7 +920,7 @@ defmodule PolymorphicEmbedTest do
         |> Repo.insert()
 
       assert {:error,
-              %Ecto.Changeset{
+              %Changeset{
                 action: :insert,
                 valid?: false,
                 errors: errors,
@@ -1009,7 +1010,7 @@ defmodule PolymorphicEmbedTest do
       |> reminder_module.changeset(attrs)
       |> Repo.insert()
 
-    assert {:error, %Ecto.Changeset{errors: [channel: {"is invalid type", []}]}} = insert_result
+    assert {:error, %Changeset{errors: [channel: {"is invalid type", []}]}} = insert_result
   end
 
   test "wrong type as string raises" do
@@ -1055,13 +1056,13 @@ defmodule PolymorphicEmbedTest do
     for generator <- @generators do
       reminder_module = get_module(Reminder, generator)
 
-      changeset = Ecto.Changeset.change(struct(reminder_module))
+      changeset = Changeset.change(struct(reminder_module))
 
       changeset =
         if polymorphic?(generator) do
           PolymorphicEmbed.cast_polymorphic_embed(changeset, :channel)
         else
-          Ecto.Changeset.cast_embed(changeset, :channel)
+          Changeset.cast_embed(changeset, :channel)
         end
 
       assert changeset.valid?
@@ -1440,12 +1441,11 @@ defmodule PolymorphicEmbedTest do
       |> reminder_module.changeset(sms_reminder_attrs)
       |> Repo.insert()
 
-    assert {:error, %Ecto.Changeset{errors: [channel: {"is invalid type", []}]}} = insert_result
+    assert {:error, %Changeset{errors: [channel: {"is invalid type", []}]}} = insert_result
   end
 
   test "missing __type__ nilifies" do
-    generator = :polymorphic
-    reminder_module = get_module(Reminder, generator)
+    reminder_module = get_module(Reminder, :polymorphic)
 
     sms_reminder_attrs = %{
       date: ~U[2020-05-28 02:57:19Z],
@@ -1479,12 +1479,14 @@ defmodule PolymorphicEmbedTest do
       }
     }
 
-    insert_result =
-      struct(reminder_module)
+    changeset =
+      reminder_module
+      |> struct()
       |> reminder_module.changeset(sms_reminder_attrs)
-      |> Repo.insert()
 
-    assert {:ok, %{channel: %{fallback_provider: nil}}} = insert_result
+    assert changeset.valid?
+    assert {:ok, %{id: id}} = Repo.insert(changeset)
+    assert %{channel: %{fallback_provider: nil}} = Repo.get(reminder_module, id)
   end
 
   test "missing __type__ leads to raising error" do
@@ -1920,17 +1922,30 @@ defmodule PolymorphicEmbedTest do
         )
 
       if polymorphic?(generator) do
-        assert Enum.at(changeset.changes.contexts, 0).id
-        assert Enum.at(changeset.changes.contexts, 1).id
+        assert Enum.all?(changeset.changes.contexts, fn
+                 %Changeset{} = changeset ->
+                   not is_nil(Changeset.get_field(changeset, :id))
+
+                 %{id: id} ->
+                   not is_nil(id)
+
+                 _ ->
+                   false
+               end)
       else
         refute Map.has_key?(Enum.at(changeset.changes.contexts, 0), :id)
       end
 
-      struct = Repo.insert!(changeset)
+      assert %{valid?: true} = changeset
+
+      struct = Repo.get(reminder_module, Repo.insert!(changeset).id)
 
       if polymorphic?(generator) do
-        assert Enum.at(changeset.changes.contexts, 0).id == Enum.at(struct.contexts, 0).id
-        assert Enum.at(changeset.changes.contexts, 1).id == Enum.at(struct.contexts, 1).id
+        assert Enum.map(changeset.changes.contexts, fn
+                 %Changeset{} = changeset -> Changeset.get_field(changeset, :id)
+                 %{id: id} -> id
+                 _ -> nil
+               end) == Enum.map(struct.contexts, & &1.id)
       else
         assert Enum.at(struct.contexts, 0).id
         assert Enum.at(struct.contexts, 1).id
@@ -1962,12 +1977,11 @@ defmodule PolymorphicEmbedTest do
         |> Repo.insert()
 
       if polymorphic?(generator) do
-        assert {:error,
-                %Ecto.Changeset{valid?: false, errors: [contexts: {"is invalid type", _}]}} =
+        assert {:error, %Changeset{valid?: false, errors: [contexts: {"is invalid type", _}]}} =
                  insert_result
       else
         assert {:error,
-                %Ecto.Changeset{
+                %Changeset{
                   valid?: false,
                   errors: errors,
                   changes: %{contexts: [%{errors: location_errors} | _]}
@@ -2030,7 +2044,7 @@ defmodule PolymorphicEmbedTest do
           |> Repo.insert()
 
         assert {:error,
-                %Ecto.Changeset{
+                %Changeset{
                   valid?: false,
                   action: :insert,
                   errors: errors,
@@ -2070,7 +2084,7 @@ defmodule PolymorphicEmbedTest do
           |> Repo.insert()
 
         assert {:error,
-                %Ecto.Changeset{
+                %Changeset{
                   valid?: false,
                   action: :insert,
                   errors: errors,
@@ -2331,7 +2345,7 @@ defmodule PolymorphicEmbedTest do
       }
 
       assert changeset =
-               %Ecto.Changeset{valid?: false} =
+               %Changeset{valid?: false} =
                struct(reminder_module)
                |> reminder_module.changeset(attrs)
 
@@ -2362,7 +2376,7 @@ defmodule PolymorphicEmbedTest do
       }
 
       assert changeset =
-               %Ecto.Changeset{valid?: false} =
+               %Changeset{valid?: false} =
                struct(reminder_module)
                |> reminder_module.changeset(attrs)
 
@@ -2392,7 +2406,7 @@ defmodule PolymorphicEmbedTest do
     }
 
     assert changeset =
-             %Ecto.Changeset{valid?: false} =
+             %Changeset{valid?: false} =
              struct(reminder_module)
              |> reminder_module.changeset(attrs)
 

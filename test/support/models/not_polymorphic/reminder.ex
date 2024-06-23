@@ -14,7 +14,8 @@ defmodule PolymorphicEmbed.Regular.Reminder do
 
     embeds_many :contexts, PolymorphicEmbed.Regular.Reminder.Context.Location, on_replace: :delete
 
-    embeds_many :contexts3, PolymorphicEmbed.Regular.Reminder.Context.DeviceNoId, on_replace: :delete
+    embeds_many :contexts3, PolymorphicEmbed.Regular.Reminder.Context.DeviceNoId,
+      on_replace: :delete
 
     timestamps()
   end

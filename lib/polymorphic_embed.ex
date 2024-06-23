@@ -81,11 +81,13 @@ defmodule PolymorphicEmbed do
           | {:on_type_not_found, :changeset_error | :ignore | :nilify | :raise}
           | {:default, term()}
 
-  defdelegate cast_polymorphic_embed(changeset, field, cast_opts \\ []),
-    to: PolymorphicEmbed.Changeset
-
   # defdelegate cast_polymorphic_embed(changeset, field, cast_opts \\ []),
-  #   to: PolymorphicEmbed.ChangesetNew
+  #   to: PolymorphicEmbed.Changeset
+
+  defdelegate cast_polymorphic_embed(changeset, field, cast_opts \\ []),
+    to: PolymorphicEmbed.ChangesetNew
+
+  defdelegate apply_changes(changeset), to: PolymorphicEmbed.ChangesetNew
 
   @doc ~S"""
   Indicates an embedded polymorphic schema for a field.
