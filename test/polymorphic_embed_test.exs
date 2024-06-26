@@ -1010,7 +1010,17 @@ defmodule PolymorphicEmbedTest do
       |> reminder_module.changeset(attrs)
       |> Repo.insert()
 
-    assert {:error, %Changeset{errors: [channel: {"is invalid type", []}]}} = insert_result
+    assert {:error,
+            %Changeset{
+              errors: [
+                channel:
+                  {"is invalid type",
+                   [
+                     validation: :cast_polymorphic_embed,
+                     type: :map
+                   ]}
+              ]
+            }} = insert_result
   end
 
   test "wrong type as string raises" do

@@ -116,7 +116,7 @@ defmodule PolymorphicEmbed.ChangesetNew do
        ),
        do: params
 
-  defp polymorphic_embed!(op, name, pattern) do
+  defp polymorphic_embed!(op, key, pattern) do
     message =
       case pattern do
         nil ->
@@ -132,7 +132,7 @@ defmodule PolymorphicEmbed.ChangesetNew do
           "was declared as polymorphic_embeds_one but has multiple cardinality"
       end
 
-    raise ArgumentError, "cannot #{op} `#{name}`, field `#{name}` " <> message
+    raise ArgumentError, "cannot #{op} `#{key}`, field `#{key}` " <> message
   end
 
   defp polymorphic_on_cast(struct, params, on_cast, %Type{types_metadata: types_metadata})
@@ -175,18 +175,29 @@ defmodule PolymorphicEmbed.ChangesetNew do
     end
   end
 
-  defp missing_polymorphic_embed(changeset, name, current, required?, embed, opts) do
+  defp missing_polymorphic_embed(changeset, key, current, required?, embed, opts) do
     %{changes: changes, errors: errors} = changeset
-    current_changes = Map.get(changes, name, current)
+    current_changes = Map.get(changes, key, current)
 
-    if required? and embed_empty?(embed, current_changes) do
-      %{
+    cond do
+      required? and embed_empty?(embed, current_changes) ->
+        %{
+          changeset
+          | valid?: false,
+            errors: [{key, {required_message(opts), [validation: :required]}} | errors]
+        }
+
+      is_nil(current) ->
         changeset
-        | valid?: false,
-          errors: [{name, {required_message(opts), [validation: :required]}} | errors]
-      }
-    else
-      changeset
+
+      changes == %{} and is_list(current) ->
+        %{changeset | data: Map.put(changeset.data, key, Enum.map(current, &autogenerate_id/1))}
+
+      changes == %{} and not is_nil(current) ->
+        %{changeset | data: Map.put(changeset.data, key, autogenerate_id(current))}
+
+      true ->
+        changeset
     end
   end
 
@@ -195,7 +206,6 @@ defmodule PolymorphicEmbed.ChangesetNew do
   defp invalid_message(opts, default \\ nil),
     do: Keyword.get(opts, :invalid_message, default || "is invalid type")
 
-  # defp embed_empty?(%{cardinality: _}, %NotLoaded{}), do: true
   defp embed_empty?(%{cardinality: :many}, []), do: true
   defp embed_empty?(%{cardinality: :many}, changes), do: embed_filter_empty(changes) == []
   defp embed_empty?(%{cardinality: :one}, nil), do: true
@@ -382,11 +392,11 @@ defmodule PolymorphicEmbed.ChangesetNew do
     end
   end
 
-  defp autogenerate_id(%{valid?: true, action: action} = changeset, mod)
+  defp autogenerate_id(%Changeset{valid?: true, action: action} = changeset, mod)
        when action in [nil, :insert] do
     case mod.__schema__(:autogenerate_id) do
       {key, _source, :binary_id} ->
-        if Changeset.get_field(changeset, key) == nil do
+        if is_nil(Changeset.get_field(changeset, key)) do
           Changeset.put_change(changeset, key, Ecto.UUID.generate())
         else
           changeset
@@ -400,7 +410,24 @@ defmodule PolymorphicEmbed.ChangesetNew do
     end
   end
 
-  defp autogenerate_id(changeset, _mod), do: changeset
+  defp autogenerate_id(%Changeset{} = changeset, _mod), do: changeset
+
+  defp autogenerate_id(%mod{} = data) do
+    case mod.__schema__(:autogenerate_id) do
+      {key, _source, :binary_id} ->
+        if is_nil(Map.get(data, key)) do
+          Map.put(data, key, Ecto.UUID.generate())
+        else
+          data
+        end
+
+      {_key, :id} ->
+        raise "embedded schemas cannot autogenerate `:id` primary keys"
+
+      nil ->
+        data
+    end
+  end
 
   defp sort_create(_, %{cardinality: :one}), do: nil
 
