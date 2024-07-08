@@ -318,6 +318,11 @@ defmodule PolymorphicEmbed.ChangesetNew do
   end
 
   defp embed_cast(%{cardinality: :many} = embed, value_list, current_list, on_cast, opts)
+       when is_nil(value_list) or is_nil(current_list) do
+    embed_cast(embed, value_list || [], current_list || [], on_cast, opts)
+  end
+
+  defp embed_cast(%{cardinality: :many} = embed, value_list, current_list, on_cast, opts)
        when is_list(value_list) and is_list(current_list) do
     new_embeds =
       Enum.map(
